@@ -18,6 +18,7 @@ module ROBOT-DSM
           <env> .Map </env>
           <id> 0 </id>
           <period> 0 </period>
+          <localtime> 0 </localtime>
         </robot>
       </robots>
       
@@ -26,7 +27,8 @@ module ROBOT-DSM
       <time> 0 </time>
       <code> .K </code>
       <nbots> 1 </nbots>
-      <state> Discrete </state>
+      <livebots> 0 </livebots>
+      <state> Progress </state>
       <stage> Preprocessing </stage>
     </T>
 
@@ -37,11 +39,14 @@ module ROBOT-DSM
   syntax KResult ::= Val
 
   syntax KItem ::= "endMW"
+                 | "sleep"
   syntax KItem ::= undefined(Type)
 
   /*Sequential composition*/
-  rule S1:Stmt S2:Stmts => S1 ~> S2                    [structural]
-  rule V1:VarDecl V2:VarDecls => V1 ~> V2              [structural]
+  rule .Stmts => .                                     [structural]
+  rule S:Stmt Ss:Stmts => S ~> Ss                      [structural]
+  rule .VarDecls => .                                  [structural]
+  rule V:VarDecl Vs:VarDecls => V ~> Vs                [structural]
 
   /*Variable Declaration*/
   rule <robot>...
@@ -55,11 +60,11 @@ module ROBOT-DSM
        ...</robot>
 
   /*Preprocessing stage*/
-  rule SD:SharedDecls V:VarDecls SF:StepFunc N:Nbots
-       => SD ~> V ~> SF ~> N
+  rule SDs:SharedDecls VDs:VarDecls SF:StepFunc N:Nbots
+       => SDs ~> VDs ~> SF ~> N
 
   rule <robot>...
-         <k> MW {Vs:VarDecls} => Vs ~> endMW...</k>
+         <k> MW {VDs:VarDecls} => VDs ~> endMW...</k>
        ...</robot>
        <stage> Preprocessing </stage>
 
@@ -71,9 +76,9 @@ module ROBOT-DSM
        <stage> Preprocessing </stage>
 
   rule <robot>...
-         <k> SF:StepFunc => . ...</k>
+         <k> Step() {Ev:Events} => . ...</k>
        ...</robot>
-       <code> . => SF </code>
+       <code> . => Ev </code>
        <stage> Preprocessing </stage>
 
   syntax PWrapper ::= pw(Periods)
@@ -89,6 +94,7 @@ module ROBOT-DSM
          <env> E </env>
        ...</robot>
        (.Bag => <robot> ...
+                  <k> .K </k>
                   <period> P </period>
                   <env> E </env>
                   <id> I </id>
@@ -98,23 +104,47 @@ module ROBOT-DSM
        <stage> Preprocessing </stage>                 requires N =/=K 1
 
   rule <robot>...
-        <k> simEnv(1, pw(P:Int), dw(D:Int)) => C ...</k>
+        <k> simEnv(1, pw(P:Int), dw(D:Int)) =>. ...</k>
         <period> _ => P </period>
         <id> I </id>
        ...</robot>
        <code> C </code>
        <timeout> ... .Map => I |-> D ...</timeout>
-       <stage> Preprocessing => Simulation </stage>
+       <stage> Preprocessing => Simulation </stage> 
 
   /*Simulation stage*/
 
-  syntax Int ::= findMin(List, Int)                                            [function]
-  rule findMin(L:Int, Ls:List, R:Int) => findMin(Ls, minInt(L,R))
-  rule findMin(.List, R:Int) => R 
-  
-  rule  <timeout> TO:Map </timeout>
-        <state> Discrete => Progress </state>
-        <time> T => findMin(values(TO),10000) </time>                           requires T =/=K findMin(values(TO), 10000) 
+  syntax Int ::= findMin(List)                        [function]                            
+               | "Nat"
+  rule findMin(.List) => Nat
+  rule findMin(ListItem(I)) => I
+  rule findMin(ListItem(I) Ls:List) => minInt(I, findMin(Ls))
+
+
+  /*Time progress transition*/  
+  rule <timeout> TO:Map </timeout>
+       <state> Progress => Discrete </state>
+       <time> T => findMin(values(TO)) </time>                           
+       <stage> Simulation </stage>                                       requires T =/=K findMin(values(TO))
+
+  /*Discrete time transition*/ 
+  rule <robots>...
+         <robot>...
+           <k> .K => Code ~> sleep </k>
+           <localtime> LocalTime => CurTime </localtime>
+           <id> ID </id>
+         ...</robot>
+       ...</robots>
+       <timeout>... ID |-> CurTime ...</timeout>
+       <code> Code </code>
+       <time> CurTime </time>
+       <livebots> LBots:Int => LBots +Int 1 </livebots>
+       <state> Discrete </state>
+       <stage> Simulation </stage>                                      requires LocalTime <Int CurTime
+
+  context HOLE:Event _:Events
+
+
 
 
 endmodule

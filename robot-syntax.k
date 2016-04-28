@@ -10,8 +10,8 @@ module ROBOT-SYNTAX
 
   syntax SharedDecls ::= MwDecl
  
-  syntax BotCode  ::= VarDecls StepFunc         [klabel('BotCodeWithVarDecl)]
-                    | StepFunc
+  syntax BotCode  ::= VarDecls StepFunc
+
   syntax StepFunc ::= "Step()" "{" Events "}"
 
   syntax MwDecl   ::= "MW" "{" "}"
@@ -20,13 +20,12 @@ module ROBOT-SYNTAX
   syntax VarDecl  ::= Type Id ";"
                     | Type Id "=" Exp ";"       [strict(3)]
   
-  syntax VarDecls ::= VarDecl
-                    | VarDecl VarDecls          [klabel('VarDeclConcat)] 
+  syntax VarDecls ::= List{VarDecl, ""}         [klabel('VarDecls)]
 
   syntax Type    ::= "int" | "float" | "boolean"
 
-  syntax Event   ::= Id "()" "{" "pre" "(" Exp ")" ";" "eff" Block "}"
-  syntax Events  ::= List{Event,""}             [klabel('EventList)]
+  syntax Event   ::= Id "()" "{" "pre" "(" Exp ")" ";" "eff" Block "}"   [strict(2)]
+  syntax Events  ::= List{Event,""}             [klabel('Events)]
 
   syntax Exp     ::= Bool | Int | Float | Id
                    | "(" Exp ")"   [bracket]
@@ -42,15 +41,13 @@ module ROBOT-SYNTAX
                    > Exp "and" Exp [strict(1), left]
                    > Exp "=" Exp   [strict(2), right]
 
-  syntax Block ::= "{" "}"
-                 | "{" Stmts "}"
+  syntax Block ::= "{" Stmts "}"
 
   syntax Stmt  ::= Block
                  | Exp ";"                             [strict] 
                  | "atomic" Block // shared memory communication
                  | "if" "(" Exp ")" Block "else" Block [strict(1)]
 
-  syntax Stmts ::= Stmt
-                 | Stmt Stmts                          [klabel('StmtConcat)]
+  syntax Stmts ::= List{Stmt, ""}                [klabel('Stmts)]
 
 endmodule
