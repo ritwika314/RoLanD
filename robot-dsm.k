@@ -76,9 +76,9 @@ module ROBOT-DSM
        <stage> Preprocessing </stage>
 
   rule <robot>...
-         <k> Step() {Ev:Events} => . ...</k>
+         <k> SF:StepFunc => . ...</k>
        ...</robot>
-       <code> . => Ev </code>
+       <code> . => SF </code>
        <stage> Preprocessing </stage>
 
   syntax PWrapper ::= pw(Periods)
@@ -128,13 +128,11 @@ module ROBOT-DSM
        <stage> Simulation </stage>                                       requires T =/=K findMin(values(TO))
 
   /*Discrete time transition*/ 
-  rule <robots>...
-         <robot>...
-           <k> .K => Code ~> sleep </k>
-           <localtime> LocalTime => CurTime </localtime>
-           <id> ID </id>
-         ...</robot>
-       ...</robots>
+  rule <robot>...
+         <k> .K => Code ~> sleep </k>
+         <localtime> LocalTime => CurTime </localtime>
+         <id> ID </id>
+       ...</robot>
        <timeout>... ID |-> CurTime ...</timeout>
        <code> Code </code>
        <time> CurTime </time>
@@ -142,7 +140,12 @@ module ROBOT-DSM
        <state> Discrete </state>
        <stage> Simulation </stage>                                      requires LocalTime <Int CurTime
 
-  context HOLE:Event _:Events
+  syntax KItem ::= closure(Exp, Stmts, Events) 
+  rule <robot>...
+         <k> Step(){X:Id() {pre (E:Exp); eff {Ss:Stmts}} Evs:Events} => closure(E, Ss, Evs) ... </k>
+       ...</robot>
+
+  context closure(HOLE:Exp, Ss, Evs)
 
 
 
