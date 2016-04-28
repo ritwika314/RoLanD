@@ -5,8 +5,8 @@ module ROBOT-SYNTAX
   //For initializing the number of robots and corresponding periods
   syntax Nbots   ::= "Sim" Int "{" Periods "}" "{" Delays "}" ";"
   //The unit for period/delay is ms
-  syntax Periods ::= List{Int,","}
-  syntax Delays  ::= List{Int,","}
+  syntax Periods ::= List{Int,","}              [klabel('Periods)]
+  syntax Delays  ::= List{Int,","}              [klabel('Delays)]
 
   syntax SharedDecls ::= MwDecl
  
@@ -14,8 +14,7 @@ module ROBOT-SYNTAX
 
   syntax StepFunc ::= "Step()" "{" Events "}"
 
-  syntax MwDecl   ::= "MW" "{" "}"
-                    | "MW" "{" VarDecls "}"
+  syntax MwDecl   ::= "MW" "{" VarDecls "}"
 
   syntax VarDecl  ::= Type Id ";"
                     | Type Id "=" Exp ";"       [strict(3)]
