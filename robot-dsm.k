@@ -22,17 +22,25 @@ module ROBOT-DSM
         </robot>
       </robots>
       
+      // memory related cells
       <mwEnv> .Map </mwEnv>
       <store> .Map </store>
       <nextLoc> 0 </nextLoc>
+      // calendar automata
       <timeout> .Map </timeout>
       <time> 0 </time>
-      <varCode> .K </varCode>
-      <stepCode> .K </stepCode>
+      <state> Progress </state>
+      // global lock queue
+      <busy> .K </busy>
+      <queue> .List </queue>
+      // robot
       <nbots> 1 </nbots>
       <livebots> 0 </livebots>
       <initialized> 0 </initialized>
-      <state> Progress </state>
+      // code shared among robots
+      <varCode> .K </varCode>
+      <stepCode> .K </stepCode>
+
       <stage> Preprocessing </stage>
     </T>
 
@@ -42,11 +50,6 @@ module ROBOT-DSM
   syntax Exp  ::= Val
   syntax KResult ::= Val
 
-  syntax KItem ::= "endMW"
-                 | "sleep"
-                 | "initialized"
-  syntax KItem ::= undefined(Type)
-
   // Sequential composition
   rule .Stmts => .                                     [structural]
   rule S:Stmt Ss:Stmts => S ~> Ss                      [structural]
@@ -54,6 +57,7 @@ module ROBOT-DSM
   rule V:VarDecl Vs:VarDecls => V ~> Vs                [structural]
 
   // Variable Declaration
+  syntax KItem ::= undefined(Type)
   rule <robot>...
          <k> T:Type X:Id; => . ...</k>
          <env> Env => Env[X <- L] </env>
@@ -76,6 +80,7 @@ module ROBOT-DSM
        <stepCode> .K => SF </stepCode>
        <stage> Preprocessing </stage>
 
+  syntax KItem ::= "endMW"
   rule <robot>...
          <k> MW {VDs:VarDecls} => VDs ~> endMW...</k>
        ...</robot>
@@ -88,36 +93,29 @@ module ROBOT-DSM
        <mwEnv> .Map => ENV </mwEnv>
        <stage> Preprocessing </stage>
 
-  syntax PWrapper ::= pw(Periods)
-  syntax DWrapper ::= dw(Delays)
-  syntax Val ::= simEnv(Int, PWrapper, DWrapper)
   rule <robot>...
-         <k> Sim N:Int {Ps} {Ds}; => simEnv(N, pw(Ps), dw(Ds)) ...</k>
-       ...</robot>
-       <stage> Preprocessing </stage>
-                
-  rule <robot>...
-         <k> simEnv(N, pw(P:Int, Ps:Periods), dw(D:Int, Ds:Delays)) => simEnv(N -Int 1, pw(Ps), dw(Ds)) ...</k>
+         <k> Sim N {P:Int, Ps:Periods} {D:Int, Ds:Delays}; => Sim N -Int 1 {Ps} {Ds}; ...</k>
          <env> E </env>
        ...</robot>
        (.Bag => <robot> ...
                   <k> VC ~> initialized </k>
                   <period> P </period>
                   <env> E </env>
-                  <id> I </id>
+                  <id> ID </id>
                 ...</robot>)
-       <timeout> ... .Map => I |-> D ...</timeout>
-       <nbots> I:Int => I +Int 1 </nbots>
+       <timeout> ... .Map => ID |-> D ...</timeout>
+       <nbots> ID:Int => ID +Int 1 </nbots>
        <varCode> VC </varCode>
        <stage> Preprocessing </stage>                 requires N =/=K 1
 
+  syntax KItem ::= "initialized"
   rule <robot>...
-        <k> simEnv(1, pw(P:Int), dw(D:Int)) => VC ~> initialized...</k>
+        <k> Sim 1 {P:Int} {D:Int}; => VC ~> initialized...</k>
         <period> _ => P </period>
-        <id> I </id>
+        <id> ID </id>
        ...</robot>
        <varCode> VC </varCode>
-       <timeout> ... .Map => I |-> D ...</timeout>
+       <timeout> ... .Map => ID |-> D ...</timeout>
        <stage> Preprocessing </stage>
 
   rule <k> initialized => . ...</k>
@@ -132,17 +130,19 @@ module ROBOT-DSM
                | "Nat"
   rule findMin(.List) => Nat
   rule findMin(ListItem(I)) => I
-  rule findMin(ListItem(I) Ls:List) => minInt(I, findMin(Ls))
+  rule findMin(ListItem(I1:Int) ListItem(I2:Int) Ls:List) => findMin(ListItem(I1) Ls)      requires I1 <=Int I2
+  rule findMin(ListItem(I1:Int) ListItem(I2:Int) Ls:List) => findMin(ListItem(I2) Ls)      requires I1 >Int I2
 
   // Time progress transition  
   rule <timeout> TO:Map </timeout>
        <state> Progress => Discrete </state>
        <time> T => findMin(values(TO)) </time>                           
-       <stage> Simulation </stage>                                       requires T <Int findMin(values(TO)) andBool T <=Int 60
+       <stage> Simulation </stage>                                       requires T <Int findMin(values(TO)) andBool T <=Int 50
 
   // Discrete time transition
+  syntax KItem ::= "activate"
   rule <robot>...
-         <k> .K => Code </k>
+         <k> .K => activate ~> Code </k>
          <localtime> LocalTime => CurTime </localtime>
          <id> ID </id>
        ...</robot>
@@ -152,6 +152,32 @@ module ROBOT-DSM
        <livebots> LBots:Int => LBots +Int 1 </livebots>
        <state> Discrete </state>
        <stage> Simulation </stage>                                       requires LocalTime <Int CurTime
+
+  rule <robot>...
+         <k> activate => . ...</k>
+       ...</robot>
+       <busy> B </busy>                                                  requires B =/=K .K
+
+  rule <robot>...
+         <k> activate => . ...</k>
+         <id> ID </id>
+       ...</robot>
+       <queue> ListItem(ID) => .List ...</queue>
+       <busy> .K => ID </busy>
+
+  
+  rule <robot>...
+         <k> activate => . ...</k>
+         <id> ID </id>
+       ...</robot>
+       <queue> .List </queue>
+
+  rule <robot>...
+         <k> activate => . ...</k>
+         <id> ID </id>
+       ...</robot>
+       <queue> ListItem(I) ...</queue>                                  requires ID =/=K I                            
+
 
   // Variable lookup
   rule <robot>...
@@ -174,7 +200,6 @@ module ROBOT-DSM
   // Expression Statements
   rule _:Val ; => .
   
-
   // Arithmetic Operator
   rule I1 + I2 => I1 +Int I2
   rule Str1 + Str2 => Str1 +String Str2
@@ -194,7 +219,9 @@ module ROBOT-DSM
   rule false and _ => false
 
   // Evaluating Events one by one
-  rule Step(){Evs:Events} => Evs ~> sleep
+  syntax KItem ::= "sleep"
+                 | "releaseLock"
+  rule Step(){Evs:Events} => Evs ~> releaseLock ~> sleep
   
   rule .Events => .
 
@@ -205,6 +232,18 @@ module ROBOT-DSM
 
   rule closure(true, Ss, Evs) => Ss
   rule closure(false, Ss, Evs) => Evs
+
+  rule <robot>...
+         <k> releaseLock =>. ...</k>
+         <id> ID </id>
+       ...</robot>
+       <busy> ID => .K </busy>
+
+  rule <robot>...
+         <k> releaseLock =>. ...</k>
+         <id> ID </id>
+       ...</robot>
+       <busy> B </busy>                                         requires ID =/=K B
 
   rule <robot>...
          <k> sleep =>. ...</k>
@@ -218,7 +257,27 @@ module ROBOT-DSM
   rule <livebots> 0 </livebots>
        <timeout> TO </timeout>
        <time> CT </time>
-       <state> Discrete => Progress </state>                 requires  CT <Int findMin(values(TO))
+       <state> Discrete => Progress </state>                    requires  CT <Int findMin(values(TO))
 
+  // Lock semantics
+  rule <robot>...
+         <k> atomic{Ss:Stmts} => . ...</k>
+         <id> ID </id>
+       ...</robot>
+       <queue> QID (.List => ListItem(ID)) </queue>
+       <busy> B </busy>                                         requires (notBool (ID in QID)) andBool ID =/=K B
+
+  rule <robot>...
+         <k> atomic{Ss:Stmts} => . ...</k>
+         <id> ID </id>
+       ...</robot>
+       <queue> QID </queue>                                     
+       <busy> B </busy>                                         requires (ID in QID) andBool ID =/=K B
+
+  rule <robot>...
+         <k> atomic{Ss:Stmts} => Ss ...</k>
+         <id> ID </id>
+       ...</robot>
+       <busy> ID </busy>
 
 endmodule
