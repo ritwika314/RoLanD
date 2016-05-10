@@ -3,7 +3,7 @@ module ROBOT-SYNTAX
   syntax Sim     ::= SharedDecls BotCode Nbots
 
   //For initializing the number of robots and corresponding periods
-  syntax Nbots   ::= "Sim" Int "{" Periods "}" "{" Delays "}" ";"
+  syntax Nbots   ::= "Sim" Int "{" Periods "}" "{" Delays "}" Int ";"
   //The unit for period/delay is ms
   syntax Periods ::= List{Int,","}              [klabel('Periods)]
   syntax Delays  ::= List{Int,","}              [klabel('Delays)]
@@ -25,6 +25,8 @@ module ROBOT-SYNTAX
 
   syntax Event   ::= Id "()" "{" "pre" "(" Exp ")" ";" "eff" Block "}"   [strict(2)]
   syntax Events  ::= List{Event,""}             [klabel('Events)]
+
+  syntax Id      ::= "robotIndex" | "NumBots"
 
   syntax Exp     ::= Bool | Int | Float | Id
                    | "(" Exp ")"   [bracket]

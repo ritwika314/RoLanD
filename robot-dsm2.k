@@ -9,9 +9,7 @@ module ROBOT-DSM
   syntax State ::= "Discrete"
                  | "Progress"
 
-  syntax LockReqState ::= "Request"
-                        | "Acquire"
-                        | "Release"
+ 
   configuration
     <T>
       <robots>
@@ -20,8 +18,8 @@ module ROBOT-DSM
           <env> .Map </env>
           <id> 0 </id>
           <period> 0 </period>
-          <localTime> 0 </localTime>
-          <lockReqState> .K </lockReqState>
+          <localtime> 0 </localtime>
+          <request> 0 </request>
         </robot>
       </robots>
       
@@ -29,25 +27,20 @@ module ROBOT-DSM
       <mwEnv> .Map </mwEnv>
       <store> .Map </store>
       <nextLoc> 0 </nextLoc>
+      // random delay
+      <delay> 0 </delay>
       // calendar automata
-      <timeout>
-        <event multiplicity = "*">
-          <eventType> NodeAct </eventType>
-          <eventId> 0 </eventId>
-          <eventTimeout> 0 </eventTimeout>
-        </event>
-      </timeout>
+      <timeout> .List </timeout>
       <time> 0 </time>
       <maxTime> 0 </maxTime>
       <state> Progress </state>
       // global lock req queue
-      <lockReqs> .List </lockReqs>
+      <busy> .K </busy>
+      <lockReq> .List </lockReq>
       // robot
       <nbots> 1 </nbots>
       <livebots> 0 </livebots>
       <initialized> 0 </initialized>
-      // random delay
-      <delay> 0 </delay>
       // code shared among robots
       <varCode> .K </varCode>
       <stepCode> .K </stepCode>
@@ -106,44 +99,29 @@ module ROBOT-DSM
        <mwEnv> .Map => ENV </mwEnv>
        <stage> Preprocessing </stage>
 
-  syntax KItem ::= "initialized"
-
   rule <robot>...
          <k> Sim N {P:Int, Ps:Periods} {D:Int, Ds:Delays} MT:Int; => Sim N -Int 1 {Ps} {Ds} MT; ...</k>
          <env> E </env>
        ...</robot>
-       (.Bag => <robot>...
+       (.Bag => <robot> ...
                   <k> VC ~> initialized </k>
+                  <period> P </period>
                   <env> E </env>
                   <id> ID </id>
-                  <period> P </period>
-                  <lockReqState> Release </lockReqState>
                 ...</robot>)
-       <timeout> ...
-         (.Bag => <event>...
-                    <eventType> NodeAct </eventType>
-                    <eventId> ID </eventId>
-                    <eventTimeout> D </eventTimeout>
-                  ...</event>)
-       ...</timeout>
+       <timeout> ... .List => ListItem(event(NodeAct, ID, D)) </timeout>
        <nbots> ID:Int => ID +Int 1 </nbots>
        <varCode> VC </varCode>
        <stage> Preprocessing </stage>                 requires N =/=K 1
 
+  syntax KItem ::= "initialized"
   rule <robot>...
         <k> Sim 1 {P:Int} {D:Int} MT; => VC ~> initialized...</k>
         <period> _ => P </period>
         <id> ID </id>
-        <lockReqState> _ => Release </lockReqState>
        ...</robot>
        <varCode> VC </varCode>
-       <timeout>... 
-         (.Bag => <event>...
-                    <eventType> NodeAct </eventType>
-                    <eventId> ID </eventId>
-                    <eventTimeout> D </eventTimeout>
-                  ...</event>)
-       ...</timeout>
+       <timeout> ... .List => ListItem(event(NodeAct, ID, D)) </timeout>
        <maxTime> 0 => MT </maxTime>
        <stage> Preprocessing </stage>
 
@@ -156,72 +134,48 @@ module ROBOT-DSM
        <stage> Preprocessing => Simulation </stage>
 
   // Simulation stage
-  syntax Int ::= findMin(Bag)                                                      [function]
-               | findMin(Bag, Int)                                                 [function]
+  syntax Int ::= getTimeout(Event)                                         [function]
+  syntax Int ::= getEventID(Event)                                         [function]
+  syntax EventType ::= getEventType(Event)                                 [function]
+  rule getTimeout(event(ET, EID, T)) => T
+  rule getEventID(event(ET, EID, T)) => EID
+  rule getEventType(event(ET, EID, T)) => ET 
+
+  syntax Int ::= findMin(List)                                             [function]
                | "Nat"
-  rule findMin(.Bag) => Nat
-  rule findMin(<event>...<eventTimeout> To </eventTimeout> ...</event> Ts:Bag) => findMin(Ts, To)
-  rule findMin(.Bag, Tmin) => Tmin
-  rule findMin(<event>...<eventTimeout> To </eventTimeout> ...</event> Ts:Bag, Tmin) 
-       => findMin(Ts, Tmin)                                                        requires Tmin <=Int To
-  rule findMin(<event>...<eventTimeout> To </eventTimeout> ...</event> Ts:Bag, Tmin)
-       => findMin(Ts, To)                                                          requires Tmin >Int To
+  rule findMin(.List) => Nat
+  rule findMin(ListItem(E)) => getTimeout(E)
+  rule findMin(ListItem(E1) ListItem(E2) Ls:List) => findMin(ListItem(E1) Ls)      requires getTimeout(E1) <=Int getTimeout(E2)
+  rule findMin(ListItem(E1) ListItem(E2) Ls:List) => findMin(ListItem(E2) Ls)      requires getTimeout(E1) >Int getTimeout(E2)
 
   // Time progress transition  
-  rule <timeout> TO:Bag </timeout>
+  rule <timeout> TO:List </timeout>
        <state> Progress => Discrete </state>
        <time> T => findMin(TO) </time>
        <maxTime> MT </maxTime>                           
-       <stage> Simulation </stage>                                                 requires T <Int findMin(TO) andBool T <=Int MT
+       <stage> Simulation </stage>                                               requires T <Int findMin(TO) andBool T <=Int MT
 
   // Discrete time transition
-  syntax KItem ::= "acquireLock"
+  syntax Int ::= findTimeout(List, Int, EventType)                               [function]
+  rule findTimeout(.List, EID, ET) => Nat 
+  rule findTimeout(ListItem(E) Ls:List, EID, ET) => getTimeout(E)                          requires EID ==Int getEventID(E) andBool getEventType(E) ==K ET
+  rule findTimeout(ListItem(E) Ls:List, EID, ET) => findTimeout(Ls, EID, ET)               requires (notBool(EID ==Int getEventID(E) andBool getEventType(E) ==K ET))
+
+  syntax List ::= removeItem(List, Int, EventType)                               [function]
+  rule removeItem(ListItem(E) Ls:List, EID, ET) => Ls                                      requires getEventID(E) ==Int EID andBool getEventType(E) ==K ET
+  rule removeItem(ListItem(E) Ls:List, EID, ET) => ListItem(E) removeItem(Ls, EID, ET)     requires notBool(getEventID(E) ==Int EID andBool getEventType(E) ==K ET)
+
   rule <robot>...
-         <k> .K => acquireLock ~> Code </k>
-         <localTime> LocalTime => GlobalTime </localTime>
+         <k> .K => Code </k>
+         <localtime> LocalTime => GlobalTime </localtime>
          <id> ID </id>
        ...</robot>
-       <timeout>...
-         (<event>...
-           <eventType> NodeAct </eventType>
-           <eventId> ID </eventId>
-           <eventTimeout> GlobalTime </eventTimeout>
-          ...</event>) => .Bag
-       ...</timeout>
+       <timeout> TO => removeItem(TO, ID, NodeAct) </timeout>
        <stepCode> Code </stepCode>
        <time> GlobalTime </time>
        <livebots> LBots:Int => LBots +Int 1 </livebots>
        <state> Discrete </state>
-       <stage> Simulation </stage>                                  requires LocalTime <Int GlobalTime
-
-  rule <timeout>...
-         (<event>...
-           <eventType> LockAct </eventType>
-           <eventId> ID </eventId>
-           <eventTimeout> GlobalTime </eventTimeout>
-          ...</event> => .Bag)
-       </timeout>
-       <time> GlobalTime </time>
-       <lockReqs> ... .List => ListItem(ID) </lockReqs>
-
-  rule <robot>...
-         <k> acquireLock => . ...</k>
-         <id> ID </id>
-         <lockReqState> Request => Acquire </lockReqState>
-       ...</robot>
-       <lockReqs> ListItem(ID) ... </lockReqs>
-  
-  rule <robot>...
-         <k> acquireLock => . ...</k>
-         <id> ID </id>
-       ...</robot>
-       <lockReqs> ListItem(ID2) ...</lockReqs>                     requires ID =/=Int ID2
-
-  rule <robot>...
-         <k> acquireLock => . ...</k>
-       ...</robot>
-       <lockReqs> .List </lockReqs>
-          
+       <stage> Simulation </stage>                                               requires LocalTime <Int GlobalTime andBool findTimeout(TO, ID, NodeAct) ==Int GlobalTime
 
   // Variable lookup
   rule <robot>...
@@ -229,16 +183,6 @@ module ROBOT-DSM
          <env>... X |-> L ...</env>
        ...</robot>
        <store>... L |-> V:Val ...</store>
-
-  rule <robot>...
-         <k> robotIndex:Id => ID ...</k>
-         <id> ID </id>
-       ...</robot>
-
-  rule <robot>...
-         <k> NumBots:Id => N </k>
-       ...</robot>
-       <nbots> N </nbots>
 
   // Assignment
   syntax Exp ::= lvalue(K)
@@ -290,30 +234,22 @@ module ROBOT-DSM
   rule <robot>...
          <k> releaseLock =>. ...</k>
          <id> ID </id>
-         <lockReqState> Acquire => Release </lockReqState>
        ...</robot>
-       <lockReqs> ListItem(ID) => .List ... </lockReqs>
+       <busy> ID => .K </busy>
 
   rule <robot>...
          <k> releaseLock =>. ...</k>
          <id> ID </id>
-         <lockReqState> LRS </lockReqState>
-       ...</robot>                                               requires LRS =/=K Acquire
+       ...</robot>
+       <busy> B </busy>                                         requires ID =/=K B
 
-  rule <robot>...
+  /*rule <robot>...
          <k> sleep =>. ...</k>
          <period> P </period>
          <id> ID </id>
-         <localTime> LT </localTime>
        ...</robot>
        <livebots> N => N -Int 1 </livebots>
-       <timeout>... 
-         (.Bag => <event>...
-                    <eventType> NodeAct </eventType>
-                    <eventId> ID </eventId>
-                    <eventTimeout> LT +Int P </eventTimeout> 
-                  ...</event>)
-       ...</timeout>
+       <timeout>... ID |-> (T => T +Int P) ...</timeout>*/
 
   // After robots finish, set Discrete to Progress
   rule <livebots> 0 </livebots>
@@ -325,28 +261,22 @@ module ROBOT-DSM
   rule <robot>...
          <k> atomic{Ss:Stmts} => . ...</k>
          <id> ID </id>
-         <localTime> LT </localTime>
-         <lockReqState> Release => Request </lockReqState>
        ...</robot>
-       <timeout>...
-         (.Bag => <event>...
-                    <eventType> LockAct </eventType>
-                    <eventId> ID </eventId>
-                    <eventTimeout> LT +Int D </eventTimeout>
-                  ...</event>)
-       ...</timeout>
-       <delay> D => randomRandom(10) +Int 1 </delay>
+       <lockReq> QID (.List => ListItem(ID)) </lockReq>
+       <delay> D => randomRandom(10) + 1 </delay>
+       <busy> B </busy>                                         requires (notBool (ID in QID)) andBool ID =/=K B
 
-  rule <robot>...
+  /*rule <robot>...
          <k> atomic{Ss:Stmts} => . ...</k>
          <id> ID </id>
-         <lockReqState> Request </lockReqState>
        ...</robot>
+       <queue> QID </queue>                                     
+       <busy> B </busy>                                         requires (ID in QID) andBool ID =/=K B
 
   rule <robot>...
          <k> atomic{Ss:Stmts} => Ss ...</k>
          <id> ID </id>
-         <lockReqState> Acquire </lockReqState>
        ...</robot>
+       <busy> ID </busy>*/
 
 endmodule
