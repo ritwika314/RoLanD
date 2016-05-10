@@ -32,7 +32,7 @@ module ROBOT-DSM
       // calendar automata
       <timeout>
         <event multiplicity = "*">
-          <eventType> NodeAct </eventType>
+          <eventType> .K </eventType>
           <eventId> 0 </eventId>
           <eventTimeout> 0 </eventTimeout>
         </event>
