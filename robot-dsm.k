@@ -43,8 +43,8 @@ module ROBOT-DSM
       // global lock req queue
       <lockReqs> .List </lockReqs>
       // robot
-      <nbots> 1 </nbots>
       <livebots> 0 </livebots>
+      <nbots> 1 </nbots>
       <initialized> 0 </initialized>
       // random delay
       <delay> 0 </delay>
@@ -182,11 +182,11 @@ module ROBOT-DSM
          <id> ID </id>
        ...</robot>
        <timeout>...
-         (<event>...
+         <event>...
            <eventType> NodeAct </eventType>
            <eventId> ID </eventId>
            <eventTimeout> GlobalTime </eventTimeout>
-          ...</event>) => .Bag
+         ...</event>
        ...</timeout>
        <stepCode> Code </stepCode>
        <time> GlobalTime </time>
@@ -308,11 +308,11 @@ module ROBOT-DSM
        ...</robot>
        <livebots> N => N -Int 1 </livebots>
        <timeout>... 
-         (.Bag => <event>...
-                    <eventType> NodeAct </eventType>
-                    <eventId> ID </eventId>
-                    <eventTimeout> LT +Int P </eventTimeout> 
-                  ...</event>)
+         <event>...
+           <eventType> NodeAct </eventType>
+           <eventId> ID </eventId>
+           <eventTimeout> LT => LT +Int P </eventTimeout> 
+         ...</event>
        ...</timeout>
 
   // After robots finish, set Discrete to Progress
