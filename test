@@ -1,0 +1,36 @@
+MW {
+	int candidate = -1;
+	int NumVoted = 0;
+
+}
+
+boolean voted = false;
+Step() {
+	voting(){
+		pre(voted == false);
+		eff {
+			atomic{
+				if(candidate < robotIndex) {
+					NumVoted = NumVoted+1;
+					candidate = robotIndex;
+					voted = true;
+				}
+				
+				else {
+					voted = false;
+				}
+			}
+		}
+
+	}
+
+	voted() {
+		pre(voted == true);
+		eff{
+
+	}
+	
+	}
+}
+
+Sim 4 {10,12,10,10} {5,3,5,5} ;
