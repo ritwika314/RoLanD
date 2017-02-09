@@ -1,0 +1,10 @@
+kompile -d --no-prelude --backend java --main-module RACE-VERIFIER --syntax-module ROBOT-SYNTAX patterns/race-verifier.k
+
+krun -d smt none race/race-spec.k testcode/race.pccl 
+
+
+krun -d --smt none --prove race/race-spec.k testcode/race.pccl
+true
+
+
+
