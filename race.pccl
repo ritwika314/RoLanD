@@ -2,14 +2,14 @@
 agent::Race 
 nagents: 2 
 	
-allwrite:
+MW:
 	List(ItemPosition> dests 
 		= getInput();
 
-allread:
+SW:
 	
 
-local:
+Loc:
   ObstacleList obs = getObs();
   boolean Pick = true; 
   ItemPosition currentDest;
