@@ -1,0 +1,40 @@
+
+agent::Race 
+nagents: 2 
+	
+allwrite:
+	List(ItemPosition> dests 
+		= getInput();
+
+allread:
+	
+
+local:
+  ObstacleList obs = getObs();
+  boolean Pick = true; 
+  ItemPosition currentDest;
+init: 
+
+events:
+
+PickDest():
+  pre(Pick);
+  eff:
+    if (isEmpty(dests)):
+     exit();   
+    else:
+      currentDest = head(dests);
+      doReach(currentDest,obs);
+      Pick = false;
+      
+Remove():
+  pre(!Pick);
+  eff:
+    if(doReach_done):
+      atomic:
+        if(contains(
+        dests,currentDest)):
+        remove(dests,currentDest);
+   	  Pick = true;
+
+
