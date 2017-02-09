@@ -16,7 +16,7 @@ rule
 O:List 
 </obstacle>
 <k>
-UpdateTarget(_, _ ,T1 , 0) => . ...
+UpdateTarget(_, _ ,T1 , O) => .  ...
 </k>
 </agent>
  
