@@ -15,6 +15,7 @@ module ROBOT-DSM
       <robots>
         <robot multiplicity = "*">
           <k> $PGM:K  </k>
+          <target> .List </k> 
           <env> .Map </env>
           <id> 0 </id>
           <period> 0 </period>
@@ -25,6 +26,7 @@ module ROBOT-DSM
       // memory related cells
       <mwEnv> .Map </mwEnv>
       <store> .Map </store>
+      <reached> .List </reached> 
       <nextLoc> 0 </nextLoc>
       // calendar automata
       <timeout> .Map </timeout>
