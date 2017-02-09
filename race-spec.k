@@ -11,6 +11,8 @@ rule
 
 <agent><id> I1:Int </id>
 <target>
+T1
+</target>
 <k>  
 <obstacle> 
 O:List 
